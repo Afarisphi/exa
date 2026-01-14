@@ -14,6 +14,7 @@ router.post(
       const userId = req.user.id;
       const { lat, lng } = req.body;
 
+      // 1️⃣ Validate input
       if (!lat || !lng || !req.file) {
         return res.status(400).json({
           success: false,
@@ -26,7 +27,24 @@ router.post(
 
       const today = new Date().toISOString().slice(0, 10);
 
-      // 1️⃣ Cek sudah check-in hari ini?
+      // 2️⃣ Ambil lokasi kerja aktif
+      const { data: location, error: locErr } = await supabase
+        .from('work_locations')
+        .select('*')
+        .eq('is_active', true)
+        .single();
+
+      if (locErr || !location) {
+        return res.status(500).json({
+          success: false,
+          error: {
+            code: 'NO_ACTIVE_LOCATION',
+            message: 'No active work location configured'
+          }
+        });
+      }
+
+      // 3️⃣ Cek sudah check-in hari ini?
       const { data: existing } = await supabase
         .from('attendance')
         .select('id')
@@ -44,11 +62,12 @@ router.post(
         });
       }
 
-      // 2️⃣ Insert attendance
+      // 4️⃣ Insert attendance
       const { data: attendance, error } = await supabase
         .from('attendance')
         .insert({
           user_id: userId,
+          location_id: location.id, // 🔥 FIX
           attendance_date: today,
           check_in_time: new Date().toISOString(),
           check_in_lat: lat,
@@ -60,13 +79,17 @@ router.post(
 
       if (error) throw error;
 
-      // 3️⃣ Response sukses
+      // 5️⃣ Response sukses
       return res.status(201).json({
         success: true,
         data: {
           attendance_id: attendance.id,
           attendance_date: today,
           check_in_time: attendance.check_in_time,
+          location: {
+            id: location.id,
+            name: location.name
+          },
           status: attendance.status
         }
       });
