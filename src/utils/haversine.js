@@ -1,3 +1,5 @@
+// src/utils/haversine.js
+
 export function haversine(lat1, lon1, lat2, lon2) {
   const R = 6371000; // meter
   const toRad = (v) => (v * Math.PI) / 180;
